@@ -15,21 +15,22 @@ max-fusion: 4
 # Porcentaje que se queda el servidor en ventas entre jugadores (0 a 100)
 impuesto-venta: 0
 
-# Borde que tiene una parcela al ser reclamada
-borde-reclamado: QUARTZ_SLAB
+# Borde que tiene una parcela al ser reclamada (las libres usan roble)
+borde-reclamado: SPRUCE_SLAB
+
+# Cofre que aparece junto al arbol cuando alguien reclama una parcela
+cofre-inicial:
+  activado: true
+  items:
+    - WOODEN_PICKAXE:1
+    - WOODEN_AXE:1
+    - WOODEN_SHOVEL:1
+    - BREAD:6
+    - TORCH:12
+    - OAK_SAPLING:2
 
 # Bordes que los jugadores pueden elegir (deben ser losas)
 bordes-permitidos:
-  - QUARTZ_SLAB
-  - STONE_BRICK_SLAB
-  - BRICK_SLAB
-  - SANDSTONE_SLAB
-  - RED_SANDSTONE_SLAB
-  - NETHER_BRICK_SLAB
-  - PRISMARINE_SLAB
-  - PURPUR_SLAB
-  - MUD_BRICK_SLAB
-  - DEEPSLATE_BRICK_SLAB
   - OAK_SLAB
   - SPRUCE_SLAB
   - BIRCH_SLAB
@@ -40,6 +41,17 @@ bordes-permitidos:
   - BAMBOO_SLAB
   - CRIMSON_SLAB
   - WARPED_SLAB
+  - MANGROVE_SLAB
+  - QUARTZ_SLAB
+  - STONE_BRICK_SLAB
+  - BRICK_SLAB
+  - SANDSTONE_SLAB
+  - RED_SANDSTONE_SLAB
+  - NETHER_BRICK_SLAB
+  - PRISMARINE_SLAB
+  - PURPUR_SLAB
+  - MUD_BRICK_SLAB
+  - DEEPSLATE_BRICK_SLAB
 
 # Mobs naturales en los mundos de parcelas
 mobs-naturales: false
