@@ -34,6 +34,7 @@ public final class PlotAdminCommand implements TabExecutor {
         switch (a[0].toLowerCase()) {
             case "create" -> create(s, a);
             case "delete" -> delete(s, a);
+            case "limit" -> limit(s, a);
             case "list" -> list(s);
             case "tp" -> tp(s, a);
             case "reload" -> {
@@ -50,8 +51,9 @@ public final class PlotAdminCommand implements TabExecutor {
 
     private void usage(CommandSender s) {
         Msg.raw(s, "<gold><bold>MyPlot Admin");
-        Msg.raw(s, "<yellow>/plotadmin create plotworld <nombre> <tamaño>");
+        Msg.raw(s, "<yellow>/plotadmin create plotworld <nombre> <tamaño> [limite]");
         Msg.raw(s, "<yellow>/plotadmin delete plotworld <nombre>");
+        Msg.raw(s, "<yellow>/plotadmin limit <mundo> <bloques|off> <gray>- radio maximo del mundo");
         Msg.raw(s, "<yellow>/plotadmin list <gray>| <yellow>tp <nombre> <gray>| <yellow>reload");
         Msg.raw(s, "<yellow>/plotadmin setprice <precio>");
         Msg.raw(s, "<yellow>/plotadmin reset <jugador> <gray>- borra todas sus parcelas");
@@ -59,7 +61,7 @@ public final class PlotAdminCommand implements TabExecutor {
 
     private void create(CommandSender s, String[] a) {
         if (a.length < 4 || !a[1].equalsIgnoreCase("plotworld")) {
-            Msg.send(s, "<red>Uso: /plotadmin create plotworld <nombre> <tamaño>");
+            Msg.send(s, "<red>Uso: /plotadmin create plotworld <nombre> <tamaño> [limite]");
             return;
         }
         String name = a[2];
@@ -78,19 +80,61 @@ public final class PlotAdminCommand implements TabExecutor {
             Msg.send(s, "<red>El tamaño debe estar entre 8 y 256.");
             return;
         }
+        int limit = 0;
+        if (a.length > 4) {
+            try {
+                limit = Integer.parseInt(a[4]);
+            } catch (NumberFormatException e) {
+                Msg.send(s, "<red>El limite debe ser un numero de bloques (ejemplo: 5000).");
+                return;
+            }
+            if (limit < 100) {
+                Msg.send(s, "<red>El limite minimo es de 100 bloques.");
+                return;
+            }
+        }
         if (Bukkit.getWorld(name) != null || new File(Bukkit.getWorldContainer(), name).exists()) {
             Msg.send(s, "<red>Ya existe un mundo o carpeta con ese nombre.");
             return;
         }
         Msg.send(s, "<yellow>Creando mundo, puede tardar unos segundos...");
-        World w = pm.createPlotWorld(name, size);
+        World w = pm.createPlotWorld(name, size, limit);
         if (w == null) {
             Msg.send(s, "<red>No se pudo crear el mundo.");
             return;
         }
         Msg.send(s, "<green>Mundo <yellow>" + name + "<green> creado: parcelas de <yellow>" + size + "x" + size
-                + "<green> con calles de <yellow>" + PlotWorld.ROAD + "<green> bloques.");
+                + "<green> con calles de <yellow>" + PlotWorld.ROAD + "<green> bloques"
+                + (limit > 0 ? " y limite de <yellow>" + limit + "<green> bloques desde el centro." : "."));
         if (s instanceof Player p) p.teleport(pm.getPlotWorld(name).spawnLocation(w));
+    }
+
+    private void limit(CommandSender s, String[] a) {
+        if (a.length < 3) {
+            Msg.send(s, "<red>Uso: /plotadmin limit <mundo> <bloques|off>");
+            return;
+        }
+        if (pm.getPlotWorld(a[1]) == null) {
+            Msg.send(s, "<red>Ese mundo no existe en MyPlot.");
+            return;
+        }
+        int limit = 0;
+        if (!a[2].equalsIgnoreCase("off")) {
+            try {
+                limit = Integer.parseInt(a[2]);
+            } catch (NumberFormatException e) {
+                Msg.send(s, "<red>Escribe un numero de bloques o <yellow>off<red>.");
+                return;
+            }
+            if (limit < 100) {
+                Msg.send(s, "<red>El limite minimo es de 100 bloques.");
+                return;
+            }
+        }
+        pm.setWorldLimit(a[1], limit);
+        Msg.send(s, limit > 0
+                ? "<green>Limite de <yellow>" + a[1] + "<green>: <yellow>" + limit + "<green> bloques desde el centro."
+                : "<green>Limite de <yellow>" + a[1] + "<green> desactivado.");
     }
 
     private void delete(CommandSender s, String[] a) {
@@ -113,7 +157,8 @@ public final class PlotAdminCommand implements TabExecutor {
         }
         Msg.raw(s, "<gold><bold>Mundos de parcelas:");
         for (PlotWorld pw : pm.allWorlds()) {
-            Msg.raw(s, "<yellow>" + pw.name() + " <gray>- parcelas de " + pw.size() + "x" + pw.size());
+            String lim = pw.limit() > 0 ? " - limite " + pw.limit() : " - sin limite";
+            Msg.raw(s, "<yellow>" + pw.name() + " <gray>- parcelas de " + pw.size() + "x" + pw.size() + lim);
         }
     }
 
@@ -176,11 +221,11 @@ public final class PlotAdminCommand implements TabExecutor {
         List<String> out = new ArrayList<>();
         if (!s.hasPermission("myplot.admin")) return out;
         if (a.length == 1) {
-            out.addAll(List.of("create", "delete", "list", "tp", "reload", "setprice", "reset"));
+            out.addAll(List.of("create", "delete", "limit", "list", "tp", "reload", "setprice", "reset"));
         } else if (a.length == 2) {
             switch (a[0].toLowerCase()) {
                 case "create", "delete" -> out.add("plotworld");
-                case "tp" -> {
+                case "tp", "limit" -> {
                     for (PlotWorld pw : pm.allWorlds()) out.add(pw.name());
                 }
                 case "reset" -> {
@@ -191,6 +236,8 @@ public final class PlotAdminCommand implements TabExecutor {
             }
         } else if (a.length == 3 && a[0].equalsIgnoreCase("delete")) {
             for (PlotWorld pw : pm.allWorlds()) out.add(pw.name());
+        } else if (a.length == 3 && a[0].equalsIgnoreCase("limit")) {
+            out.add("off");
         }
         String prefix = a[a.length - 1].toLowerCase();
         out.removeIf(x -> !x.toLowerCase().startsWith(prefix));
