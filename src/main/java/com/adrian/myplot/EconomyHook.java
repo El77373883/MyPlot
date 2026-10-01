@@ -25,4 +25,8 @@ public final class EconomyHook {
         EconomyResponse r = eco.withdrawPlayer(p, amount);
         return r.transactionSuccess();
     }
+
+    public void deposit(OfflinePlayer p, double amount) {
+        eco.depositPlayer(p, amount);
+    }
 }
