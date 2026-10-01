@@ -1,0 +1,23 @@
+name: MyPlot
+version: '1.0'
+main: com.adrian.myplot.MyPlot
+api-version: '26.2'
+authors: [soyadrianyt001]
+description: Plugin de parcelas con mundos planos de cuadricula
+softdepend: [Vault]
+commands:
+  plot:
+    description: Comandos de parcelas
+    usage: /plot help
+    aliases: [parcela]
+  plotadmin:
+    description: Administracion de MyPlot
+    usage: /plotadmin create plotworld <nombre> <tamano>
+    aliases: [padmin]
+permissions:
+  myplot.admin:
+    default: op
+  myplot.unlimited:
+    default: false
+  myplot.free:
+    default: false
