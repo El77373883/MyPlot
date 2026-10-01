@@ -4,11 +4,17 @@ import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.World;
 
+import java.util.ArrayList;
+import java.util.List;
+
 public final class PlotWorld {
     public static final int ROAD = 8;               // calles de 8 bloques
     public static final int OFFSET = ROAD / 2;
     public static final int GROUND_Y = 64;
-    public static final Material UNCLAIMED_BORDER = Material.RED_SANDSTONE_SLAB;
+    public static final Material UNCLAIMED_BORDER = Material.OAK_SLAB;
+
+    /** Arbol de cada parcela: {dx, dy, dz, tipo} (tipo 0 = tronco, 1 = hojas). dy es sobre el suelo. */
+    public static final List<int[]> TREE = buildTree();
 
     private final String name;
     private final int size;
@@ -24,6 +30,29 @@ public final class PlotWorld {
         this.size = size;
         this.period = size + ROAD;
         this.limit = limit;
+    }
+
+    private static List<int[]> buildTree() {
+        List<int[]> l = new ArrayList<>();
+        for (int y = 1; y <= 5; y++) l.add(new int[]{0, y, 0, 0});
+        for (int y = 4; y <= 5; y++) {
+            for (int dx = -2; dx <= 2; dx++) {
+                for (int dz = -2; dz <= 2; dz++) {
+                    if (dx == 0 && dz == 0) continue;
+                    if (Math.abs(dx) == 2 && Math.abs(dz) == 2) continue;
+                    l.add(new int[]{dx, y, dz, 1});
+                }
+            }
+        }
+        for (int dx = -1; dx <= 1; dx++) {
+            for (int dz = -1; dz <= 1; dz++) l.add(new int[]{dx, 6, dz, 1});
+        }
+        l.add(new int[]{0, 7, 0, 1});
+        l.add(new int[]{1, 7, 0, 1});
+        l.add(new int[]{-1, 7, 0, 1});
+        l.add(new int[]{0, 7, 1, 1});
+        l.add(new int[]{0, 7, -1, 1});
+        return l;
     }
 
     public String name() { return name; }
@@ -70,6 +99,9 @@ public final class PlotWorld {
     public int maxX(int px) { return minX(px) + size - 1; }
     public int minZ(int pz) { return pz * period + OFFSET; }
     public int maxZ(int pz) { return minZ(pz) + size - 1; }
+
+    public int treeCenterX(int px) { return minX(px) + size / 2; }
+    public int treeCenterZ(int pz) { return minZ(pz) + size / 2; }
 
     public Location spawnLocation(World w) {
         return new Location(w, 0.5, GROUND_Y + 1, 6.5);
