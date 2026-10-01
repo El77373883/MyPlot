@@ -6,6 +6,7 @@ import org.bukkit.Material;
 import org.bukkit.OfflinePlayer;
 import org.bukkit.Particle;
 import org.bukkit.Sound;
+import org.bukkit.block.BlockFace;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
 import org.bukkit.command.TabExecutor;
@@ -40,7 +41,12 @@ public final class PlotCommand implements TabExecutor {
             return true;
         }
         switch (args[0].toLowerCase()) {
-            case "claim", "comprar", "buy" -> claim(p);
+            case "claim" -> claim(p);
+            case "buy", "comprar" -> buy(p);
+            case "sell", "vender" -> sell(p, args);
+            case "unsell" -> unsell(p);
+            case "merge", "fusionar" -> merge(p, args);
+            case "unmerge", "separar" -> unmerge(p, args);
             case "home", "h" -> home(p, args);
             case "visit", "v" -> visit(p, args);
             case "delete", "borrar" -> delete(p, args);
@@ -59,6 +65,10 @@ public final class PlotCommand implements TabExecutor {
     private void help(Player p) {
         Msg.raw(p, "<gradient:gold:yellow><bold>MyPlot " + CreatorAnimation.VERSION + "</bold></gradient>");
         Msg.raw(p, "<yellow>/plot claim <gray>- reclamar la parcela donde estas");
+        Msg.raw(p, "<yellow>/plot buy <gray>- comprar una parcela en venta");
+        Msg.raw(p, "<yellow>/plot sell <precio> <gray>| <yellow>unsell <gray>- vender tu parcela");
+        Msg.raw(p, "<yellow>/plot merge [direccion] <gray>- fusionar con la vecina");
+        Msg.raw(p, "<yellow>/plot unmerge [direccion] <gray>- separar parcelas");
         Msg.raw(p, "<yellow>/plot home [n] <gray>- ir a tu parcela");
         Msg.raw(p, "<yellow>/plot visit <jugador> [n] <gray>- visitar la parcela de otro");
         Msg.raw(p, "<yellow>/plot info | list <gray>- informacion y tus parcelas");
@@ -116,6 +126,55 @@ public final class PlotCommand implements TabExecutor {
         }
     }
 
+    private BlockFace parseFace(Player p, String[] args, int pos) {
+        if (args.length > pos) {
+            switch (args[pos].toLowerCase()) {
+                case "norte", "n", "north" -> {
+                    return BlockFace.NORTH;
+                }
+                case "sur", "s", "south" -> {
+                    return BlockFace.SOUTH;
+                }
+                case "este", "e", "east" -> {
+                    return BlockFace.EAST;
+                }
+                case "oeste", "o", "w", "west" -> {
+                    return BlockFace.WEST;
+                }
+                default -> {
+                    return null;
+                }
+            }
+        }
+        float yaw = ((p.getLocation().getYaw() % 360) + 360) % 360;
+        if (yaw >= 315 || yaw < 45) return BlockFace.SOUTH;
+        if (yaw < 135) return BlockFace.WEST;
+        if (yaw < 225) return BlockFace.NORTH;
+        return BlockFace.EAST;
+    }
+
+    private String faceName(BlockFace f) {
+        return switch (f) {
+            case NORTH -> "norte";
+            case SOUTH -> "sur";
+            case EAST -> "este";
+            default -> "oeste";
+        };
+    }
+
+    private boolean overLimit(Player p) {
+        int max = plugin.getConfig().getInt("max-parcelas", 5);
+        if (max > 0 && !p.hasPermission("myplot.unlimited") && pm.countOf(p.getUniqueId()) >= max) {
+            Msg.send(p, "<red>Ya llegaste al limite de <yellow>" + max + "<red> parcelas.");
+            return true;
+        }
+        return false;
+    }
+
+    private String money(double v) {
+        return String.format(Locale.US, "%,.0f", v);
+    }
+
     // ---------- Comandos ----------
 
     private void claim(Player p) {
@@ -129,11 +188,7 @@ public final class PlotCommand implements TabExecutor {
             Msg.send(p, "<red>La parcela se esta limpiando, intenta en unos segundos.");
             return;
         }
-        int max = plugin.getConfig().getInt("max-parcelas", 5);
-        if (max > 0 && !p.hasPermission("myplot.unlimited") && pm.countOf(p.getUniqueId()) >= max) {
-            Msg.send(p, "<red>Ya llegaste al limite de <yellow>" + max + "<red> parcelas.");
-            return;
-        }
+        if (overLimit(p)) return;
         double price = plugin.getConfig().getDouble("precio", 8000);
         if (plugin.getConfig().getBoolean("cobrar", true) && price > 0 && !p.hasPermission("myplot.free")) {
             EconomyHook eco = plugin.economy();
@@ -141,20 +196,130 @@ public final class PlotCommand implements TabExecutor {
                 Msg.send(p, "<red>El servidor no tiene economia (Vault). Avisa a un admin.");
                 return;
             }
-            String shown = String.format(Locale.US, "%,.0f", price);
             if (!eco.has(p, price)) {
-                Msg.send(p, "<red>No tienes suficiente dinero. Cuesta <gold>$" + shown);
+                Msg.send(p, "<red>No tienes suficiente dinero. Cuesta <gold>$" + money(price));
                 return;
             }
             if (!eco.withdraw(p, price)) {
                 Msg.send(p, "<red>No se pudo cobrar. Intenta de nuevo.");
                 return;
             }
-            Msg.send(p, "<gray>Se cobraron <gold>$" + shown);
+            Msg.send(p, "<gray>Se cobraron <gold>$" + money(price));
         }
         pm.claim(new Plot(id, p.getUniqueId(), p.getName(), pm.claimedBorder()));
         Msg.send(p, "<green>¡Parcela reclamada! <gray>(" + id.x() + ", " + id.z() + ")");
         p.playSound(p.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 1f, 1f);
+    }
+
+    private void buy(Player p) {
+        PlotId id = idHere(p);
+        if (id == null) return;
+        Plot plot = pm.getPlot(id);
+        if (plot == null) {
+            claim(p);
+            return;
+        }
+        double price = plot.getSalePrice();
+        if (price <= 0) {
+            Msg.send(p, "<red>Esta parcela no esta en venta.");
+            return;
+        }
+        if (plot.getOwner().equals(p.getUniqueId())) {
+            Msg.send(p, "<red>Es tu parcela. Usa <yellow>/plot unsell<red> para quitarla de venta.");
+            return;
+        }
+        if (overLimit(p)) return;
+        EconomyHook eco = plugin.economy();
+        if (eco == null) {
+            Msg.send(p, "<red>El servidor no tiene economia (Vault). Avisa a un admin.");
+            return;
+        }
+        if (!eco.has(p, price)) {
+            Msg.send(p, "<red>No tienes suficiente dinero. Cuesta <gold>$" + money(price));
+            return;
+        }
+        if (!eco.withdraw(p, price)) {
+            Msg.send(p, "<red>No se pudo cobrar. Intenta de nuevo.");
+            return;
+        }
+        double tax = Math.max(0, Math.min(100, plugin.getConfig().getDouble("impuesto-venta", 0)));
+        double net = price * (1 - tax / 100.0);
+        UUID sellerId = plot.getOwner();
+        eco.deposit(Bukkit.getOfflinePlayer(sellerId), net);
+        pm.transfer(plot, p.getUniqueId(), p.getName());
+        Msg.send(p, "<green>¡Compraste la parcela por <gold>$" + money(price) + "<green>!");
+        p.playSound(p.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 1f, 1f);
+        Player seller = Bukkit.getPlayer(sellerId);
+        if (seller != null) {
+            Msg.send(seller, "<yellow>" + p.getName() + "<green> compro tu parcela. Recibiste <gold>$" + money(net));
+        }
+    }
+
+    private void sell(Player p, String[] args) {
+        if (args.length < 2) {
+            Msg.send(p, "<red>Uso: /plot sell <precio>");
+            return;
+        }
+        Plot plot = ownedHere(p);
+        if (plot == null) return;
+        if (!plot.getMerged().isEmpty()) {
+            Msg.send(p, "<red>No puedes vender una parcela fusionada. Separala antes con <yellow>/plot unmerge<red>.");
+            return;
+        }
+        double price;
+        try {
+            price = Double.parseDouble(args[1]);
+            if (price <= 0) throw new NumberFormatException();
+        } catch (NumberFormatException e) {
+            Msg.send(p, "<red>Precio invalido.");
+            return;
+        }
+        pm.setSale(plot, price);
+        Msg.send(p, "<green>Tu parcela esta en venta por <gold>$" + money(price)
+                + "<green>. Quitala con <yellow>/plot unsell<green>.");
+    }
+
+    private void unsell(Player p) {
+        Plot plot = ownedHere(p);
+        if (plot == null) return;
+        if (plot.getSalePrice() <= 0) {
+            Msg.send(p, "<red>Esta parcela no esta en venta.");
+            return;
+        }
+        pm.setSale(plot, 0);
+        Msg.send(p, "<green>Ya no esta en venta.");
+    }
+
+    private void merge(Player p, String[] args) {
+        Plot plot = ownedHere(p);
+        if (plot == null) return;
+        BlockFace face = parseFace(p, args, 1);
+        if (face == null) {
+            Msg.send(p, "<red>Direccion: norte, sur, este u oeste.");
+            return;
+        }
+        String err = pm.merge(plot, face);
+        if (err != null) {
+            Msg.send(p, "<red>" + err);
+            return;
+        }
+        Msg.send(p, "<green>¡Parcelas fusionadas hacia el <yellow>" + faceName(face) + "<green>!");
+    }
+
+    private void unmerge(Player p, String[] args) {
+        Plot plot = ownedHere(p);
+        if (plot == null) return;
+        BlockFace face = parseFace(p, args, 1);
+        if (face == null) {
+            Msg.send(p, "<red>Direccion: norte, sur, este u oeste.");
+            return;
+        }
+        String err = pm.unmerge(plot, face);
+        if (err != null) {
+            Msg.send(p, "<red>" + err);
+            return;
+        }
+        Msg.send(p, "<green>Parcelas separadas hacia el <yellow>" + faceName(face) + "<green>.");
     }
 
     private void home(Player p, String[] args) {
@@ -223,8 +388,7 @@ public final class PlotCommand implements TabExecutor {
         Msg.raw(p, "<gold><bold>Parcela (" + id.x() + ", " + id.z() + ")");
         if (plot == null) {
             double price = plugin.getConfig().getDouble("precio", 8000);
-            Msg.raw(p, "<gray>Estado: <green>libre <gray>- precio <gold>$"
-                    + String.format(Locale.US, "%,.0f", price));
+            Msg.raw(p, "<gray>Estado: <green>libre <gray>- precio <gold>$" + money(price));
             return;
         }
         List<String> names = new ArrayList<>();
@@ -235,6 +399,11 @@ public final class PlotCommand implements TabExecutor {
         Msg.raw(p, "<gray>Dueño: <yellow>" + plot.getOwnerName());
         Msg.raw(p, "<gray>Con acceso: <yellow>" + (names.isEmpty() ? "nadie" : String.join(", ", names)));
         Msg.raw(p, "<gray>Borde: <yellow>" + plot.getBorder().name().toLowerCase());
+        int group = pm.connected(id).size();
+        if (group > 1) Msg.raw(p, "<gray>Fusionada con: <yellow>" + (group - 1) + " parcela(s)");
+        if (plot.getSalePrice() > 0) {
+            Msg.raw(p, "<gray>En venta por: <gold>$" + money(plot.getSalePrice()));
+        }
     }
 
     private void list(Player p) {
@@ -247,7 +416,8 @@ public final class PlotCommand implements TabExecutor {
         int i = 1;
         for (Plot pl : mine) {
             PlotId id = pl.getId();
-            Msg.raw(p, "<yellow>#" + i++ + " <gray>" + id.world() + " (" + id.x() + ", " + id.z() + ")");
+            String sale = pl.getSalePrice() > 0 ? " <red>(en venta)" : "";
+            Msg.raw(p, "<yellow>#" + i++ + " <gray>" + id.world() + " (" + id.x() + ", " + id.z() + ")" + sale);
         }
     }
 
@@ -267,8 +437,12 @@ public final class PlotCommand implements TabExecutor {
             Msg.send(p, "<red>Ese es el dueño.");
             return;
         }
-        if (add) plot.getTrusted().add(target.getUniqueId());
-        else plot.getTrusted().remove(target.getUniqueId());
+        for (PlotId gid : pm.connected(plot.getId())) {
+            Plot gp = pm.getPlot(gid);
+            if (gp == null) continue;
+            if (add) gp.getTrusted().add(target.getUniqueId());
+            else gp.getTrusted().remove(target.getUniqueId());
+        }
         pm.save();
         Msg.send(p, add ? "<green>" + args[1] + " ahora puede construir en tu parcela."
                 : "<green>" + args[1] + " ya no tiene acceso.");
@@ -329,8 +503,8 @@ public final class PlotCommand implements TabExecutor {
     public List<String> onTabComplete(CommandSender s, Command c, String a, String[] args) {
         List<String> out = new ArrayList<>();
         if (args.length == 1) {
-            out.addAll(List.of("claim", "home", "visit", "delete", "info", "list",
-                    "add", "remove", "border", "limit", "creator"));
+            out.addAll(List.of("claim", "buy", "sell", "unsell", "merge", "unmerge", "home", "visit",
+                    "delete", "info", "list", "add", "remove", "border", "limit", "creator"));
         } else if (args.length == 2) {
             switch (args[0].toLowerCase()) {
                 case "add", "remove", "visit" -> {
@@ -341,6 +515,7 @@ public final class PlotCommand implements TabExecutor {
                         out.add(m.name().replace("_SLAB", "").toLowerCase());
                     }
                 }
+                case "merge", "unmerge", "fusionar", "separar" -> out.addAll(List.of("norte", "sur", "este", "oeste"));
                 case "delete" -> out.add("confirm");
                 default -> {
                 }
