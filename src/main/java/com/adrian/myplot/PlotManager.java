@@ -8,14 +8,17 @@ import org.bukkit.WorldBorder;
 import org.bukkit.WorldCreator;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockFace;
+import org.bukkit.block.Chest;
 import org.bukkit.block.Sign;
 import org.bukkit.block.data.BlockData;
 import org.bukkit.block.data.Rotatable;
+import org.bukkit.block.data.type.Leaves;
 import org.bukkit.block.sign.Side;
 import org.bukkit.block.sign.SignSide;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Player;
+import org.bukkit.inventory.ItemStack;
 import org.bukkit.scheduler.BukkitRunnable;
 
 import java.io.File;
@@ -52,8 +55,8 @@ public final class PlotManager {
     }
 
     public Material claimedBorder() {
-        Material m = Material.matchMaterial(plugin.getConfig().getString("borde-reclamado", "QUARTZ_SLAB"));
-        return m != null ? m : Material.QUARTZ_SLAB;
+        Material m = Material.matchMaterial(plugin.getConfig().getString("borde-reclamado", "SPRUCE_SLAB"));
+        return m != null ? m : Material.SPRUCE_SLAB;
     }
 
     private boolean isBorderMaterial(Material m) {
@@ -342,6 +345,7 @@ public final class PlotManager {
         save();
         applyBorder(plot.getId(), plot.getBorder());
         updateSign(plot);
+        placeChest(plot);
     }
 
     public void setSale(Plot plot, double price) {
@@ -378,7 +382,7 @@ public final class PlotManager {
         return new Location(w, cx + 0.5, y, cz + 0.5);
     }
 
-    // ---------- Letrero ----------
+    // ---------- Letrero, cofre y arbol ----------
 
     public void updateSign(Plot plot) {
         PlotId id = plot.getId();
@@ -405,6 +409,47 @@ public final class PlotManager {
                     ? "<dark_green>$" + String.format(Locale.US, "%,.0f", plot.getSalePrice()) : ""));
             sign.setWaxed(true);
             sign.update(true, false);
+        }
+    }
+
+    /** Cofre con cosas basicas junto al arbol (se configura en cofre-inicial del config). */
+    private void placeChest(Plot plot) {
+        if (!plugin.getConfig().getBoolean("cofre-inicial.activado", true)) return;
+        PlotId id = plot.getId();
+        PlotWorld pw = worlds.get(id.world());
+        World w = Bukkit.getWorld(id.world());
+        if (pw == null || w == null) return;
+        Block b = w.getBlockAt(pw.treeCenterX(id.x()) + 2, PlotWorld.GROUND_Y + 1, pw.treeCenterZ(id.z()));
+        b.setType(Material.CHEST, false);
+        if (b.getState() instanceof Chest chest) {
+            for (String s : plugin.getConfig().getStringList("cofre-inicial.items")) {
+                String[] parts = s.split(":");
+                Material m = Material.matchMaterial(parts[0].trim());
+                if (m == null) continue;
+                int amount = 1;
+                if (parts.length > 1) {
+                    try {
+                        amount = Integer.parseInt(parts[1].trim());
+                    } catch (NumberFormatException ignored) {
+                    }
+                }
+                chest.getBlockInventory().addItem(new ItemStack(m, Math.max(1, Math.min(64, amount))));
+            }
+        }
+    }
+
+    private void placeTree(PlotWorld pw, World w, PlotId id) {
+        int cx = pw.treeCenterX(id.x());
+        int cz = pw.treeCenterZ(id.z());
+        BlockData leaves = Bukkit.createBlockData(Material.OAK_LEAVES);
+        if (leaves instanceof Leaves l) l.setPersistent(true);
+        for (int[] t : PlotWorld.TREE) {
+            Block b = w.getBlockAt(cx + t[0], PlotWorld.GROUND_Y + t[1], cz + t[2]);
+            if (t[3] == 0) {
+                b.setType(Material.OAK_LOG, false);
+            } else if (b.getType().isAir()) {
+                b.setBlockData(leaves, false);
+            }
         }
     }
 
@@ -588,6 +633,7 @@ public final class PlotManager {
                     cancel();
                     clearing.remove(id.key());
                     applyBorder(id, PlotWorld.UNCLAIMED_BORDER);
+                    placeTree(pw, w, id);
                     if (done != null) done.run();
                 }
             }
