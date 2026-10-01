@@ -1,0 +1,51 @@
+# MyPlot v1.0 - por soyadrianyt001
+
+# Precio de cada parcela (cambialo y usa /plotadmin reload)
+precio: 8000
+
+# true = cobra con Vault. false = parcelas gratis (sirve para probar sin economia)
+cobrar: true
+
+# Maximo de parcelas por jugador (0 = sin limite)
+max-parcelas: 5
+
+# Borde que tiene una parcela al ser reclamada
+borde-reclamado: QUARTZ_SLAB
+
+# Bordes que los jugadores pueden elegir (deben ser losas)
+bordes-permitidos:
+  - QUARTZ_SLAB
+  - STONE_BRICK_SLAB
+  - BRICK_SLAB
+  - SANDSTONE_SLAB
+  - RED_SANDSTONE_SLAB
+  - NETHER_BRICK_SLAB
+  - PRISMARINE_SLAB
+  - PURPUR_SLAB
+  - MUD_BRICK_SLAB
+  - DEEPSLATE_BRICK_SLAB
+  - OAK_SLAB
+  - SPRUCE_SLAB
+  - BIRCH_SLAB
+  - JUNGLE_SLAB
+  - ACACIA_SLAB
+  - DARK_OAK_SLAB
+  - CHERRY_SLAB
+  - BAMBOO_SLAB
+  - CRIMSON_SLAB
+  - WARPED_SLAB
+
+# Mobs naturales en los mundos de parcelas
+mobs-naturales: false
+
+# Textos al entrar (formato MiniMessage). Variables: {jugador} {precio}
+mensajes:
+  ocupada:
+    titulo: "<green><bold>Parcela de {jugador}"
+    subtitulo: "<gray>Respeta su construccion"
+  libre:
+    titulo: "<red><bold>Parcela en venta"
+    subtitulo: "<gray>Compra esta parcela por <gold>${precio}<gray> con <yellow>/plot claim"
+  spawn:
+    titulo: "<aqua><bold>Spawn"
+    subtitulo: "<gray>Bienvenido a la ciudad"
