@@ -1,4 +1,4 @@
-# MyPlot v1.0 - por soyadrianyt001
+# MyPlot v1.1 - por soyadrianyt001
 
 # Precio de cada parcela (cambialo y usa /plotadmin reload)
 precio: 8000
@@ -8,6 +8,12 @@ cobrar: true
 
 # Maximo de parcelas por jugador (0 = sin limite)
 max-parcelas: 5
+
+# Maximo de parcelas que se pueden fusionar en un solo grupo
+max-fusion: 4
+
+# Porcentaje que se queda el servidor en ventas entre jugadores (0 a 100)
+impuesto-venta: 0
 
 # Borde que tiene una parcela al ser reclamada
 borde-reclamado: QUARTZ_SLAB
@@ -46,6 +52,9 @@ mensajes:
   libre:
     titulo: "<red><bold>Parcela en venta"
     subtitulo: "<gray>Compra esta parcela por <gold>${precio}<gray> con <yellow>/plot claim"
+  venta:
+    titulo: "<gold><bold>Parcela de {jugador} en venta"
+    subtitulo: "<gray>Precio <gold>${precio}<gray> - usa <yellow>/plot buy"
   spawn:
     titulo: "<aqua><bold>Spawn"
     subtitulo: "<gray>Bienvenido a la ciudad"
