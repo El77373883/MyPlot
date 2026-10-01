@@ -1,5 +1,6 @@
 package com.adrian.myplot;
 
+import net.kyori.adventure.title.Title;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.block.Block;
@@ -31,7 +32,6 @@ import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.event.player.PlayerMoveEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.inventory.ItemStack;
-import net.kyori.adventure.title.Title;
 
 import java.time.Duration;
 import java.util.HashMap;
@@ -158,7 +158,7 @@ public final class PlotListener implements Listener {
     @EventHandler(ignoreCancelled = true)
     public void onFlow(BlockFromToEvent e) {
         if (pm.getPlotWorld(e.getBlock().getWorld()) == null) return;
-        if (!Objects.equals(pm.plotAt(e.getBlock()), pm.plotAt(e.getToBlock()))) {
+        if (!Objects.equals(pm.groupRoot(e.getBlock()), pm.groupRoot(e.getToBlock()))) {
             e.setCancelled(true);
         }
     }
@@ -175,12 +175,12 @@ public final class PlotListener implements Listener {
 
     private boolean pistonSafe(Block piston, List<Block> moved, BlockFace dir) {
         if (pm.getPlotWorld(piston.getWorld()) == null) return true;
-        PlotId home = pm.plotAt(piston);
-        if (!Objects.equals(pm.plotAt(piston.getRelative(dir)), home)) return false;
+        PlotId home = pm.groupRoot(piston);
+        if (!Objects.equals(pm.groupRoot(piston.getRelative(dir)), home)) return false;
         for (Block b : moved) {
-            if (!Objects.equals(pm.plotAt(b), home)) return false;
-            if (!Objects.equals(pm.plotAt(b.getRelative(dir)), home)) return false;
-            if (!Objects.equals(pm.plotAt(b.getRelative(dir.getOppositeFace())), home)) return false;
+            if (!Objects.equals(pm.groupRoot(b), home)) return false;
+            if (!Objects.equals(pm.groupRoot(b.getRelative(dir)), home)) return false;
+            if (!Objects.equals(pm.groupRoot(b.getRelative(dir.getOppositeFace())), home)) return false;
         }
         return true;
     }
@@ -211,7 +211,7 @@ public final class PlotListener implements Listener {
         } else if (pw.inSpawnArea(t.getBlockX(), t.getBlockZ())) {
             key = "spawn";
         } else {
-            id = pw.plotAt(t.getBlockX(), t.getBlockZ());
+            id = pm.rootAt(pw, t.getBlockX(), t.getBlockZ());
             key = id == null ? "road" : id.key();
         }
 
@@ -220,14 +220,22 @@ public final class PlotListener implements Listener {
 
         Plot plot = null;
         String path;
+        double shown = plugin.getConfig().getDouble("precio", 8000);
         if (key.equals("spawn")) {
             path = "spawn";
         } else {
             plot = pm.getPlot(id);
-            path = plot != null ? "ocupada" : "libre";
+            if (plot == null) {
+                path = "libre";
+            } else if (plot.getSalePrice() > 0) {
+                path = "venta";
+                shown = plot.getSalePrice();
+            } else {
+                path = "ocupada";
+            }
         }
         String owner = plot != null ? plot.getOwnerName() : "";
-        String price = String.format(Locale.US, "%,.0f", plugin.getConfig().getDouble("precio", 8000));
+        String price = String.format(Locale.US, "%,.0f", shown);
         String title = fill(plugin.getConfig().getString("mensajes." + path + ".titulo", ""), owner, price);
         String sub = fill(plugin.getConfig().getString("mensajes." + path + ".subtitulo", ""), owner, price);
 
