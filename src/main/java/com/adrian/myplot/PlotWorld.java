@@ -13,16 +13,24 @@ public final class PlotWorld {
     private final String name;
     private final int size;
     private final int period;
+    private int limit; // radio del mundo en bloques (0 = sin limite)
 
     public PlotWorld(String name, int size) {
+        this(name, size, 0);
+    }
+
+    public PlotWorld(String name, int size, int limit) {
         this.name = name;
         this.size = size;
         this.period = size + ROAD;
+        this.limit = limit;
     }
 
     public String name() { return name; }
     public int size() { return size; }
     public int period() { return period; }
+    public int limit() { return limit; }
+    public void setLimit(int limit) { this.limit = limit; }
 
     /** Parcela en esa coordenada, o null si es calle. */
     public PlotId plotAt(int x, int z) {
@@ -43,6 +51,19 @@ public final class PlotWorld {
         int lo = -size - OFFSET;
         int hi = size + OFFSET - 1;
         return x >= lo && x <= hi && z >= lo && z <= hi;
+    }
+
+    /** Material de la calle en esa coordenada, o null si es parcela o spawn. */
+    public Material roadMaterial(int x, int z) {
+        if (inSpawnArea(x, z)) return null;
+        int mx = Math.floorMod(x - OFFSET, period);
+        int mz = Math.floorMod(z - OFFSET, period);
+        boolean roadX = mx >= size;
+        boolean roadZ = mz >= size;
+        if (!roadX && !roadZ) return null;
+        boolean sidewalk = (roadX && !roadZ && (mx == size || mx == period - 1))
+                || (roadZ && !roadX && (mz == size || mz == period - 1));
+        return sidewalk ? Material.LIGHT_GRAY_CONCRETE : Material.GRAY_CONCRETE;
     }
 
     public int minX(int px) { return px * period + OFFSET; }
